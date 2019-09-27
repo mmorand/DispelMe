@@ -1,0 +1,15 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\..\FrameXML\UI.xsd">
+    <Frame name="DmContainerFrame" parent="UIParent" movable="true" frameStrata="LOW" toplevel="true">
+        <Scripts>
+            <OnLoad>
+                Dm_OnLoad(self)
+            </OnLoad>
+            <OnUpdate>
+                Dm_OnUpdate(self, elapsed);
+            </OnUpdate>
+            <OnEvent>
+                Dm_OnEvent(self, event, ...)
+            </OnEvent>
+        </Scripts>
+    </Frame>
+</Ui>

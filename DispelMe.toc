@@ -1,0 +1,9 @@
+## Interface: 11302
+## Title: DispelMe!
+## Notes: Warlock UI & Shard Management
+## Version: 0.0.1
+## Author: Koagar [Koagar @ EU-Cho'gall]
+## DefaultState: Enabled
+
+DispelMe.lua
+DispelMe.xml
