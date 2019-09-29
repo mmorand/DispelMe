@@ -1,17 +1,14 @@
-----------------------------------
--- NAMESPACE
-----------------------------------
-local _, namespace = ...;
-
 local Dm_MainContainer = {}
 local Dm_UnitFrames = {}
 
 local BOXESGUTTER = 10
-local BOXESHEIGHT = 20
+local BOXESHEIGHT = 50
 local BOXESPERLINE = 5
-local BOXESWIDTH = 50
+local BOXESWIDTH = 80
 
 local CONTAINERTOP = 0
+
+local DM_DEBUG_MODE = false
 
 local DM_PLAYER = {
     CLASSNAME = false,
@@ -22,48 +19,60 @@ local DM_PLAYER = {
         Poison = false
     },
     SPELL1 = false,
-    SPELL2 = false,
-    PRIORITY1 = false,
-    PRIORITY2 = false
+    SPELL2 = false
 }
 
-local SPELLPRIORITY = { 'Curse', 'Magic', 'Poison', 'Disease' }
-
---[[
-@TODO AJOUTER LES ID DES AUTRES SORTS POUR TOUTES LES CLASSES
-]]--
-
-local DM_CLASSES = {
+local DM_DISPEL = {
     DRUID = {
-        CANDISPEL = {
-            Curse = true,
-            Disease = false,
-            Poison = true
+        {
+            spellId = {2782},
+            canDispel = {'Curse'},
+            priority = true
         },
-        PRIORITY1 = 'Curse',
-        PRIORITY2 = 'Poison',
-        SPELL1 = 2782,
-        SPELL2 = 14253
+        {
+            spellId = {2893, 8946},
+            canDispel = {'Poison'}
+        }
     },
     PALADIN = {
-        PRIORITY1 = 'Magic',
-        SPELL1 = 2782,
+        {
+            spellId = {4987},
+            canDispel = {'Curse', 'Disease', 'Poison'},
+            priority = true
+        },
+        {
+            spellId = {1152},
+            canDispel = {'Disease', 'Poison'}
+        }
     },
     MAGE = {
-        PRIORITY1 = 'Curse',
-        SPELL1 = 2782
+        {
+            spellId = {475},
+            canDispel = {'Curse' },
+            priority = true
+        }
     },
     PRIEST = {
-        PRIORITY1 = 'Magic',
-        PRIORITY2 = 'Disease',
-        SPELL1 = 2782,
-        SPELL2 = 14253
+        {
+            spellId = {552, 528},
+            canDispel = {'Disease'}
+        },
+        {
+            spellId = {988, 527},
+            canDispel = {'Magic'},
+            priority = true
+        }
     },
     SHAMAN = {
-        PRIORITY1 = 'Curse',
-        PRIORITY2 = 'Poison',
-        SPELL1 = 2782,
-        SPELL2 = 14253
+        {
+            spellId = {2870},
+            canDispel = {'Disease'}
+        },
+        {
+            spellId = {526},
+            canDispel = {'Poison'},
+            priority = true
+        }
     }
 }
 local DM_COLORS = {
@@ -82,6 +91,31 @@ local DM_COLORS = {
     WARLOCK =   { r = 0.53, g = 0.53, b = 0.93 },
     WARRIOR =   { r = 0.78, g = 0.61, b = 0.43 },
 }
+
+function Dm_Debug()
+
+    print('DRUID')
+    print(GetSpellInfo(2893)) -- Abolir le poison (multiple)
+    print(GetSpellInfo(8946)) -- Guérison du poison
+    print(GetSpellInfo(2782)) -- Délivrance de la malédiction
+
+    print('MAGE')
+    print(GetSpellInfo(475)) -- Délivrance de la malédiction mineure
+
+    print('PALADIN')
+    print(GetSpellInfo(4987)) -- Epuration (maladie-poison-magie)
+    print(GetSpellInfo(1152)) -- Purification (maladie-poison)
+
+    print('PRIEST')
+    print(GetSpellInfo(527)) -- dissipation magie I
+    print(GetSpellInfo(988)) -- dissipation magie II
+    print(GetSpellInfo(552)) -- abolir la maladie (multiple)
+    print(GetSpellInfo(528)) -- guérison des maladies
+
+    print('SHAMAN')
+    print(GetSpellInfo(2870)) -- Guérison des maladies
+    print(GetSpellInfo(526)) -- Guérison du poison
+end
 
 function Dm_RoundValue(val, decimal)
     if (decimal) then
@@ -116,8 +150,7 @@ function Dm_UpdateButton(target)
 
     if (UnitExists(target)) then
 
-        Dm_UnitFrames[target].text = Dm_UnitFrames[target]:CreateFontString("Dm_DispelButtonText"..target, "ARTWORK")
-        Dm_UnitFrames[target].text:SetFont("Fonts\\ARIALN.ttf", 10, "OUTLINE")
+        Dm_UnitFrames[target].text:SetFont("Fonts\\ARIALN.ttf", 15, "OUTLINE")
         Dm_UnitFrames[target].text:SetAllPoints()
         Dm_UnitFrames[target].text:SetText(UnitName(target))
         Dm_UnitFrames[target].text:SetWidth(BOXESWIDTH - 5)
@@ -126,21 +159,25 @@ function Dm_UpdateButton(target)
 
         local Dm_classNameFr, Dm_className = UnitClass(target)
         local ClassColors = DM_COLORS[Dm_className]
-        Dm_UnitFrames[target].texture = Dm_UnitFrames[target]:CreateTexture("Dm_DispelButtonTexture"..target, "BACKGROUND")
         Dm_UnitFrames[target].texture:SetAllPoints()
         Dm_UnitFrames[target].texture:SetColorTexture(ClassColors.r, ClassColors.g, ClassColors.b, 1)
+        Dm_UnitFrames[target].texture:SetToplevel(true)
     end
 end
 
 function Dm_GenerateButton(target, unitId)
 
     Dm_UnitFrames[target] = CreateFrame("Button", "Dm_DispelButton"..target, Dm_MainContainer, "SecureActionButtonTemplate")
+    Dm_UnitFrames[target].text = Dm_UnitFrames[target]:CreateFontString("Dm_DispelButtonText"..target, "ARTWORK")
+    Dm_UnitFrames[target].texture = Dm_UnitFrames[target]:CreateTexture("Dm_DispelButtonTexture"..target, "BACKGROUND")
+
     if (DM_PLAYER.SPELL1) then
         Dm_UnitFrames[target]:SetAttribute("type1", "spell")
         Dm_UnitFrames[target]:SetAttribute("spell", DM_PLAYER.SPELL1)
         Dm_UnitFrames[target]:SetAttribute("target", target)
     end
     if (DM_PLAYER.SPELL2) then
+        -- @todo: Le clic droit ne fonctionne pas
         Dm_UnitFrames[target]:SetAttribute("type2", "spell")
         Dm_UnitFrames[target]:SetAttribute("spell", DM_PLAYER.SPELL2)
         Dm_UnitFrames[target]:SetAttribute("target", target)
@@ -157,53 +194,113 @@ function Dm_GenerateButton(target, unitId)
 end
 
 function Dm_DisplayBuff(target, index)
-    Dm_UnitFrames[target].ticker = C_Timer.NewTicker(0.1, function(self)
-        local _, _, _, _, _, etime = UnitDebuff(target, index)
+    Dm_UnitFrames[target].ticker = C_Timer.NewTicker(0.1, function()
+        local _, _, _, type, _, etime = UnitBuff(target, index)
         local RemainingTime = Dm_RoundValue(etime - GetTime(), 2)
+        local debuffColors = DM_COLORS[type]
+
+        Dm_UnitFrames[target].texture:SetColorTexture(debuffColors.r, debuffColors.g, debuffColors.b, 1)
         Dm_UnitFrames[target].text:SetText(RemainingTime)
     end)
 end
 
 function Dm_TriggerAura(target)
 
-    local hasDebuff, index = false, 0
+    local needDispelCurse, needDispelDisease, needDispelMagic, needDispelPoison = false, false, false, false
+    local indexCurse, indexDisease, indexMagic, indexPoison = 0, 0, 0, 0
+
     for i = 1, 16, 1 do
-        local _, _, _, type, _, etime = UnitDebuff(target, i, "HARMFUL")
+        local _, _, _, type, _, etime = UnitBuff(target, i)
         if (etime and etime > 0) then
 
-            print(i, etime, type)
+            print('une aura '..type)
 
-            --Magic/Poison/Disease/Curse
-
-            hasDebuff = true
-            index = i
+            if (type == 'Curse') and DM_PLAYER.CANDISPEL.Curse then
+                needDispelCurse = true
+                indexCurse = i
+            end
+            if (type == 'Disease') and DM_PLAYER.CANDISPEL.Disease then
+                needDispelDisease = true
+                indexDisease = i
+            end
+            if (type == 'Magic') and DM_PLAYER.CANDISPEL.Magic then
+                print('canDispel Magic')
+                needDispelMagic = true
+                indexMagic = i
+            end
+            if (type == 'Poison') and DM_PLAYER.CANDISPEL.Poison then
+                needDispelPoison = true
+                indexPoison = i
+            end
         end
     end
-    if (hasDebuff) then
-        Dm_DisplayBuff(target, index)
+    if (needDispelCurse) then
+        print('curse')
+        Dm_DisplayBuff(target, indexCurse)
+    elseif (needDispelMagic) then
+        print('magic')
+        Dm_DisplayBuff(target, indexMagic)
+    elseif (needDispelPoison) then
+        print('poison')
+        Dm_DisplayBuff(target, indexPoison)
+    elseif (needDispelDisease) then
+        print('disease')
+        Dm_DisplayBuff(target, indexDisease)
     else
+        print('no debuff')
         Dm_UpdateButton(target)
     end
 end
 
+function Dm_AssignSpellToPlayer(slot, spellId, canDispel)
+    DM_PLAYER[slot] = spellId
+    for index, value in pairs(canDispel) do
+        DM_PLAYER.CANDISPEL[value] = true
+    end
+end
+
 function Dm_SetPlayerAttributes()
+
+    local spells = {}
     local Dm_PlayerClassNameFR, Dm_PlayerClassName = UnitClass("PLAYER")
     DM_PLAYER.CLASSNAME = Dm_PlayerClassName
 
-    local usable = IsUsableSpell(DM_CLASSES[DM_PLAYER.CLASSNAME].SPELL1)
-    if (usable) then
-        DM_PLAYER.SPELL1 = DM_CLASSES[DM_PLAYER.CLASSNAME].SPELL1
+    for spellIndex, spellInfos in pairs(DM_DISPEL[DM_PLAYER.CLASSNAME]) do
+        for index, spellId in pairs(spellInfos.spellId) do
+            local knowSpell = IsSpellKnown(spellId)
+            if (knowSpell) then
+                local spell = {
+                    spellId = spellId,
+                    canDispel = spellInfos.canDispel,
+                    priority = spellInfos.priority
+                }
+                table.insert(spells, spell)
+            end
+        end
     end
 
-    if (DM_CLASSES[DM_PLAYER.CLASSNAME].SPELL2) then
-        local usable = IsUsableSpell(DM_CLASSES[DM_PLAYER.CLASSNAME].SPELL2)
-        if (usable) then
-            DM_PLAYER.SPELL2 = DM_CLASSES[DM_PLAYER.CLASSNAME].SPELL2
+    if (table.getn(spells) > 0) then
+        if (table.getn(spells) > 1) then
+            for i, spell in pairs(spells) do
+                if (spell.priority) then
+                    Dm_AssignSpellToPlayer('SPELL1', spell.spellId, spell.canDispel)
+                else
+                    Dm_AssignSpellToPlayer('SPELL2', spell.spellId, spell.canDispel)
+                end
+            end
+        else
+            for i, spell in pairs(spells) do
+                Dm_AssignSpellToPlayer('SPELL1', spell.spellId, spell.canDispel)
+            end
         end
     end
 end
 
 function Dm_Init()
+
+    if (DM_DEBUG_MODE) then
+        Dm_Debug()
+    end
 
     Dm_GenerateMainFrame()
 
@@ -227,12 +324,10 @@ function Dm_OnLoad(self)
     self:RegisterEvent("GROUP_ROSTER_UPDATE")
 
     Dm_SetPlayerAttributes()
-    if (DM_CLASSES[DM_PLAYER.CLASSNAME]) then
+
+    if (DM_DISPEL[DM_PLAYER.CLASSNAME]) then
         Dm_Init()
     end
-end
-
-function Dm_OnUpdate(self, elapsed)
 end
 
 function Dm_OnEvent(self, event, ...)

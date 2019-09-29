@@ -4,9 +4,6 @@
             <OnLoad>
                 Dm_OnLoad(self)
             </OnLoad>
-            <OnUpdate>
-                Dm_OnUpdate(self, elapsed);
-            </OnUpdate>
             <OnEvent>
                 Dm_OnEvent(self, event, ...)
             </OnEvent>
